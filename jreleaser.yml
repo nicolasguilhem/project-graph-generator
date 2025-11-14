@@ -1,7 +1,6 @@
 # Generated with JReleaser 1.21.0 at 2025-11-13T16:02:12.75885+01:00
 project:
   name: project-graph-generator
-  version: 1.0.0-SNAPSHOT
   description: JTama - Java project graph generator
   longDescription: Generates internal dependency interactive diagram
   authors:
@@ -11,13 +10,19 @@ project:
     homepage: https://github.com/jtama/project-graph-generator
   languages:
     java:
-      groupId: io.githu.jtama
+      groupId: io.github.jtama
       version: 21
   inceptionYear: 2025
 
 release:
   github:
-    owner: jtama
+    changelog:
+      formatted: ALWAYS
+      hide:
+        categories:
+          - merge
+        contributors:
+          - GitHub
 
 #distributions:
 #  project-graph-generator:

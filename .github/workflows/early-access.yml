@@ -14,7 +14,7 @@ jobs:
     if: github.repository == 'jtama/project-graph-generator' && startsWith(github.event.head_commit.message, '🏁 Releasing version') != true && startsWith(github.event.head_commit.message, '⬆️  Next version') != true
     runs-on: ubuntu-latest
     outputs:
-      VERSION: ${{ steps.vars.outputs.VERSION }}
+      PAYLOAD_VERSION: ${{ steps.vars.outputs.PAYLOAD_VERSION }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 21
@@ -31,13 +31,13 @@ jobs:
         shell: bash
         run: |
           version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          echo "VERSION=$(echo $version)" >>$GITHUB_OUTPUT
+          echo "PAYLOAD_VERSION=$(echo $version)" >>$GITHUB_OUTPUT
 
   # Build native executable per runner
   build:
     runs-on: ubuntu-latest
     needs: [ precheck ]
-    if: endsWith(${{ needs.precheck.outputs.VERSION }}, '-SNAPSHOT')
+    if: endsWith(${{ needs.precheck.outputs.PAYLOAD_VERSION }}, '-SNAPSHOT')
     name: 'Build artefacts'
     steps:
       - name: 'Check out repository'
@@ -65,8 +65,7 @@ jobs:
           JRELEASER_NEXUS2_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           JRELEASER_NEXUS2_TOKEN: ${{ secrets.SONATYPE_PASSWORD }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          JRELEASER_PROJECT_VERSION: ${{ env.PAYLOAD_VERSION }}
-          JRELEASER_PROJECT_NAME: ${{ env.PAYLOAD_NAME }}
+          JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.PAYLOAD_VERSION }}
         # Persist logs
       - name: JReleaser release output
         if: always()

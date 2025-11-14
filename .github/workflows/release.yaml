@@ -35,7 +35,7 @@ jobs:
           then
             NEXT_VERSION=$COMPUTED_NEXT_VERSION
           fi
-          ./mvnw -B -ntp -ntp versions:set versions:commit -DnewVersion=$RELEASE_VERSION
+          mvn -B -ntp -ntp versions:set versions:commit -DnewVersion=$RELEASE_VERSION
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --global user.name "GitHub Action"
           git commit -a -m "🏁 Releasing version $RELEASE_VERSION"
@@ -76,8 +76,7 @@ jobs:
           JRELEASER_NEXUS2_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           JRELEASER_NEXUS2_TOKEN: ${{ secrets.SONATYPE_PASSWORD }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          JRELEASER_PROJECT_VERSION: ${{ env.PAYLOAD_VERSION }}
-          JRELEASER_PROJECT_NAME: ${{ env.PAYLOAD_NAME }}
+          JRELEASER_PROJECT_VERSION: ${{ github.event.inputs.version }}
         # Persist logs
       - name: JReleaser release output
         if: always()
@@ -89,7 +88,7 @@ jobs:
             out/jreleaser/output.properties
       - name: 'Set next version'
         run: |
-          ./mvnw -B -ntp versions:set versions:commit -DnewVersion=${{ needs.precheck.outputs.NEXT_VERSION }}
+          mvn -B -ntp versions:set versions:commit -DnewVersion=${{ needs.precheck.outputs.NEXT_VERSION }}
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --global user.name "GitHub Action"
           git commit -a -m "⬆️  Next version $NEXT_VERSION"

@@ -2,6 +2,7 @@ package io.github.jtama.openrewrite;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.invoke.MethodType;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,6 +15,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Option;
 import org.openrewrite.ScanningRecipe;
@@ -57,7 +59,7 @@ public class ProjectAerialViewGenerator extends ScanningRecipe<ProjectAerialView
     public ProjectAerialViewGenerator(@JsonProperty("maxNodes") Integer maxNodes,
             @JsonProperty("basePackages") String basePackages) {
         this.maxNodes = maxNodes;
-        this.packages = basePackages != null ? List.of(basePackages.split(",")) : null;
+        this.packages = basePackages != null ? List.of(basePackages.split(",")) : new ArrayList<>();
     }
 
     /**
@@ -99,7 +101,7 @@ public class ProjectAerialViewGenerator extends ScanningRecipe<ProjectAerialView
             public J preVisit(J tree, ExecutionContext ctx) {
                 if (tree instanceof JavaSourceFile) {
                     tree.getMarkers().findFirst(JavaProject.class).ifPresent(javaProject -> {
-                        if (packages == null || packages.isEmpty()) {
+                        if (packages.isEmpty() && javaProject.getPublication() != null) {
                             packages = new ArrayList<>();
                             packages.add(javaProject.getPublication().getGroupId());
                         }
@@ -120,22 +122,24 @@ public class ProjectAerialViewGenerator extends ScanningRecipe<ProjectAerialView
             public J.MemberReference visitMemberReference(J.MemberReference memberReference,
                     ExecutionContext executionContext) {
                 var member = super.visitMemberReference(memberReference, executionContext);
-                JavaType.FullyQualified targetType = memberReference.getMethodType().getDeclaringType();
-                addLink(targetType);
+                JavaType.Method method = memberReference.getMethodType();
+                if (method != null) {
+                    addLink(method.getDeclaringType());
+                }
                 return member;
             }
 
             @Override
             public J.FieldAccess visitFieldAccess(J.FieldAccess fieldAccess, ExecutionContext executionContext) {
                 var fa = super.visitFieldAccess(fieldAccess, executionContext);
-
-                JavaType.FullyQualified targetType = switch (fa.getTarget().getType()) {
-                    case JavaType.FullyQualified fq -> fq;
-                    case JavaType.Array array -> (JavaType.FullyQualified) array.getElemType();
-                    default -> null;
-                };
-
-                addLink(targetType);
+                if (fa.getTarget().getType() != null) {
+                    JavaType.FullyQualified targetType = switch (fa.getTarget().getType()) {
+                        case JavaType.FullyQualified fq -> fq;
+                        case JavaType.Array array -> (JavaType.FullyQualified) array.getElemType();
+                        default -> null;
+                    };
+                    addLink(targetType);
+                }
                 return fa;
             }
 
@@ -150,8 +154,10 @@ public class ProjectAerialViewGenerator extends ScanningRecipe<ProjectAerialView
             @Override
             public J.NewClass visitNewClass(J.NewClass newClass, ExecutionContext executionContext) {
                 J.NewClass visitedNewClass = super.visitNewClass(newClass, executionContext);
-                JavaType.FullyQualified targetType = visitedNewClass.getMethodType().getDeclaringType();
-                addLink(targetType);
+                JavaType.Method methodType = visitedNewClass.getMethodType();
+                if(methodType != null) {
+                    addLink(methodType.getDeclaringType());
+                }
                 return visitedNewClass;
             }
 

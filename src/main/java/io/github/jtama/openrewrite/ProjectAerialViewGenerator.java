@@ -55,6 +55,10 @@ public class ProjectAerialViewGenerator extends ScanningRecipe<ProjectAerialView
 
     private List<String> packages = new ArrayList<>();
 
+    transient NodesReport nodesReport = new NodesReport(this);
+
+    transient LinksReport linksReport = new LinksReport(this);
+
     public Boolean includeTests() {
         return includeTests != null && includeTests;
     }
@@ -205,6 +209,8 @@ public class ProjectAerialViewGenerator extends ScanningRecipe<ProjectAerialView
     @Override
     public @NotNull Collection<J.CompilationUnit> generate(Graph graph, @NotNull ExecutionContext ctx) {
         Graph finalGraph = filterGraph(graph);
+        finalGraph.nodes.forEach(node -> nodesReport.insertRow(ctx, node));
+        finalGraph.links.forEach(link -> linksReport.insertRow(ctx, link));
         if (generateHTMLView()) {
             try (InputStream templateStream = getClass().getResourceAsStream("template.html")) {
                 String json = new ObjectMapper().writeValueAsString(finalGraph);

@@ -1,11 +1,17 @@
 package io.github.jtama.openrewrite.model;
 
+import org.openrewrite.Column;
+
 /**
- * Represents a link between two nodes in the D3.js graph, corresponding to an interaction between two Java classes.
+ * Represents an interaction between two Java classes.
  */
 public class Link {
+
+    @Column(displayName = "The source class name", description = "The fully qualified name of the source class.")
     private final String source;
+    @Column(displayName = "The target class name", description = "The fully qualified name of the target class.")
     private final String target;
+    @Column(displayName = "The link weight", description = "The number of times these to classes relate to each other")
     private int weight;
 
     /**

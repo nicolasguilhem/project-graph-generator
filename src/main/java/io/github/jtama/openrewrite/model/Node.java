@@ -1,54 +1,61 @@
 package io.github.jtama.openrewrite.model;
 
+import org.openrewrite.Column;
+
 /**
  * Represents a node in the project graph, corresponding to a Java class.
  */
 public class Node {
-    private final String id;
-    private final String group;
-    private int incoming;
-    private int outgoing;
+
+    @Column(displayName = "Class name", description = "The simple name of the class.")
+    private final String className;
+    @Column(displayName = "Package name", description = "The class package name.")
+    private final String packageName;
+    @Column(displayName = "Incoming connections", description = "The number of other classes pointing to this class.")
+    private int incomingConnections;
+    @Column(displayName = "Outgoing connections", description = "The number of other classes this class points to .")
+    private int outgoingConnections;
 
     /**
      * Constructs a new Node.
      *
-     * @param id The fully qualified name of the class.
-     * @param group The package name of the class.
+     * @param className The fully qualified name of the class.
+     * @param packageName The package name of the class.
      */
-    public Node(String id, String group) {
-        this.id = id;
-        this.group = group;
-        this.incoming = 0; // Start with a base size
-        this.outgoing = 0; // Start with a base size
+    public Node(String className, String packageName) {
+        this.className = className;
+        this.packageName = packageName;
+        this.incomingConnections = 0; // Start with a base size
+        this.outgoingConnections = 0; // Start with a base size
     }
 
-    public String getId() {
-        return id;
+    public String getClassName() {
+        return className;
     }
 
-    public String getGroup() {
-        return group;
+    public String getPackageName() {
+        return packageName;
     }
 
-    public int getIncoming() {
-        return incoming;
+    public int getIncomingConnections() {
+        return incomingConnections;
     }
 
-    public int getOutgoing() {
-        return outgoing;
+    public int getOutgoingConnections() {
+        return outgoingConnections;
     }
 
     /**
      * Increments the size of the node, typically representing an additional incoming connection.
      */
     public void incrementIncoming() {
-        this.incoming++;
+        this.incomingConnections++;
     }
 
     /**
      * Increments the size of the node, typically representing an additional incoming connection.
      */
     public void incrementOutgoing() {
-        this.outgoing++;
+        this.outgoingConnections++;
     }
 }

@@ -33,11 +33,13 @@ import org.openrewrite.java.tree.JavaType;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import io.github.jtama.openrewrite.model.JavaSourceFileExcludedReport;
+import io.github.jtama.openrewrite.model.JavaTypesNotHandledReport;
 import io.github.jtama.openrewrite.model.Link;
 import io.github.jtama.openrewrite.model.LinksReport;
 import io.github.jtama.openrewrite.model.Node;
 import io.github.jtama.openrewrite.model.NodesReport;
-
+ 
 /**
  * An OpenRewrite recipe that scans a Java project and generates it's internal dependency graph
  */
@@ -60,6 +62,10 @@ public class ProjectAerialViewGenerator extends ScanningRecipe<ProjectAerialView
     transient NodesReport nodesReport = new NodesReport(this);
 
     transient LinksReport linksReport = new LinksReport(this);
+
+    transient JavaTypesNotHandledReport javaTypesNotHandledReport = new JavaTypesNotHandledReport(this);
+
+    transient JavaSourceFileExcludedReport javaSourceFileExcludedReport = new JavaSourceFileExcludedReport(this);
 
     public Boolean includeTests() {
         return includeTests != null && includeTests;
@@ -102,14 +108,19 @@ public class ProjectAerialViewGenerator extends ScanningRecipe<ProjectAerialView
 
             @Override
             public J preVisit(@NotNull J tree, ExecutionContext ctx) {
-                if (tree instanceof JavaSourceFile) {
-                    tree.getMarkers().findAll(JavaProject.class).forEach(javaProject -> {
+                if (tree instanceof JavaSourceFile javaSourceFile) {
+                    javaSourceFile.getMarkers().findAll(JavaProject.class).forEach(javaProject -> {
                         if (javaProject.getPublication() != null
                                 && StringUtils.isNotEmpty(javaProject.getPublication().getGroupId())) {
                             if (packages().isEmpty())
                                 packages().add(javaProject.getPublication().getGroupId());
                         }
                     });
+                    if (javaSourceFile.getPackageDeclaration() == null
+                            || isPackageExcluded(javaSourceFile.getPackageDeclaration().getPackageName())) {
+                        javaSourceFileExcludedReport.insertRow(ctx, new JavaSourceFileExcludedReport.Row(javaSourceFile));
+                        stopAfterPreVisit();
+                    }
                 }
                 return tree;
             }
@@ -163,17 +174,7 @@ public class ProjectAerialViewGenerator extends ScanningRecipe<ProjectAerialView
             public J.@NotNull FieldAccess visitFieldAccess(J.@NotNull FieldAccess fieldAccess,
                     ExecutionContext ctx) {
                 var fa = super.visitFieldAccess(fieldAccess, ctx);
-                if (fa.getTarget().getType() == null) {
-                    return fa;
-                }
-
-                JavaType.FullyQualified targetType = switch (fa.getTarget().getType()) {
-                    case JavaType.FullyQualified fq -> fq;
-                    case JavaType.Array array -> (JavaType.FullyQualified) array.getElemType();
-                    default -> null;
-                };
-
-                addLink(targetType);
+                addLinkForType(fa.getTarget().getType(), ctx);
                 return fa;
             }
 
@@ -181,7 +182,10 @@ public class ProjectAerialViewGenerator extends ScanningRecipe<ProjectAerialView
             public J.@NotNull MethodInvocation visitMethodInvocation(J.@NotNull MethodInvocation method, ExecutionContext ctx) {
                 var mi = super.visitMethodInvocation(method, ctx);
                 JavaType.FullyQualified targetType = mi.getMethodType() != null ? mi.getMethodType().getDeclaringType() : null;
-                addLink(targetType);
+                if (targetType != null) {
+                    // Method target type could be null for groovy or kotlin projects
+                    addLink(targetType);
+                }
                 return mi;
             }
 
@@ -194,8 +198,27 @@ public class ProjectAerialViewGenerator extends ScanningRecipe<ProjectAerialView
                 return visitedNewClass;
             }
 
-            private void addLink(JavaType.FullyQualified targetType) {
-                if (packages().stream().noneMatch(basePackage -> targetType.getPackageName().contains(basePackage)))
+            private void addLinkForType(JavaType type, ExecutionContext ctx) {
+
+                switch (type) {
+                    case null -> {
+                    }
+                    case JavaType.Primitive primitive -> {
+                    }
+                    case JavaType.FullyQualified fq -> addLink(fq);
+                    case JavaType.Array array -> addLink((JavaType.FullyQualified) array.getElemType());
+                    case JavaType.GenericTypeVariable gtv -> gtv.getBounds().stream().forEach(b -> addLinkForType(b, ctx));
+                    default -> javaTypesNotHandledReport.insertRow(ctx, new JavaTypesNotHandledReport.Row(type));
+                }
+            }
+
+            private boolean isPackageExcluded(String packageName) {
+                return packages().stream().noneMatch(packageName::contains);
+            }
+
+            private void addLink(@NotNull JavaType.FullyQualified targetType) {
+
+                if (isPackageExcluded(targetType.getPackageName()))
                     return;
                 J.ClassDeclaration enclosingClass = getCursor().firstEnclosing(J.ClassDeclaration.class);
                 if (enclosingClass == null) {
